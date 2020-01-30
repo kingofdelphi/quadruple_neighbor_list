@@ -2,9 +2,9 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import * as d3 from "d3";
 
-import { Graph, Node, addValueToQNList } from './lis_utils'
+import { Graph, Node, addValueToQNList, enumerate_LIS } from './lis_utils'
 
-import './App.css';
+import './App.scss';
 
 interface PathInfo {
   nodeA: [number, number]
@@ -39,9 +39,18 @@ const render = (root: HTMLElement, graph: Graph) => {
     .attr('d', 'M 0,0 m -5,-5 L 5,0 L -5,5 Z')
     .attr('fill', 'black');
 
-
   const node_radius = 20;
   const node_gap = 50;
+  const GAP = 20
+
+  var container = svg.select('g.container')
+  if (container.empty()) {
+    svg.append('g')
+      .attr('class', 'container')
+      .attr('transform', `translate(${node_radius + GAP}, ${node_radius + GAP})`)
+    container = svg.select('g.container')
+  }
+
 
   const get_coords = ([row, col]: [number, number]) => 
                                   ({ x: col * (2 * node_radius + node_gap), y: row * (2 * node_radius + node_gap) });
@@ -77,11 +86,11 @@ const render = (root: HTMLElement, graph: Graph) => {
     });
   });
 
-  var link_group = svg.select('g.link-group')
+  var link_group = container.select('g.link-group')
   if (link_group.empty()) {
-      svg.append('g')
+    container.append('g')
       .attr('class', 'link-group')
-    link_group = svg.select('g.link-group')
+    link_group = container.select('g.link-group')
   }
 
   var linksel = link_group
@@ -103,7 +112,6 @@ const render = (root: HTMLElement, graph: Graph) => {
     .append('line')
     .attr('opacity', 0)
     .attr('class', 'link')
-    .attr('transform', 'translate(100, 100)')
     .each(function (d) {
       const source = get_coords(d.nodeA);
       const target = get_coords(d.nodeB);
@@ -126,12 +134,11 @@ const render = (root: HTMLElement, graph: Graph) => {
     .duration(200)
     .attr('opacity', 1)
 
-  var nodes_group = svg.select('g.nodes-group')
+  var nodes_group = container.select('g.nodes-group')
   if (nodes_group.empty()) {
-      svg.append('g')
-      .attr('class', 'nodes-group')
-      .attr('transform', 'translate(100, 100)')
-      nodes_group = svg.select('g.nodes-group')
+      container.append('g')
+        .attr('class', 'nodes-group')
+      nodes_group = container.select('g.nodes-group')
   }
 
   var node_objs = nodes_group
@@ -185,14 +192,20 @@ const render = (root: HTMLElement, graph: Graph) => {
     .duration(200)
     .attr('opacity', 1)
 
+  const nd = container.node() as SVGGElement
+  svg
+    .attr('width', nd.getBoundingClientRect().width + 2 * GAP)
+    .attr('height', nd.getBoundingClientRect().height + 2 * GAP)
+
 };
 
 const App: React.FC = () => {
   const ref = useRef(null);
   const [usedCount, setUsedCount] = useState(0)
   const [graph, setGraph] = useState([])
+  const [consoleValue, setConsoleValue] = useState("")
 
-  const array = [3, 9, 6, 2, 8, 5, 7];
+  const array = [3, 9, 6, 2, 8, 5, 7, 15, 20, 8, 3, 2, 51, 32, 1, -1, 51, 5];
   const [rising_length] = useState(array.map(d => 0))
 
   useEffect(() => {
@@ -207,12 +220,18 @@ const App: React.FC = () => {
 
   const clearLis = () => {
     setGraph([])
+    setConsoleValue("")
     setUsedCount(0)
+  }
+
+  const enumerate = () => {
+    const lises = enumerate_LIS(graph);
+    setConsoleValue(lises.map(lis => lis.join(", ")).join("\n"))
   }
 
   return (
     <div ref={ref} className="App">
-      <div>
+      <div className="header">
       {array.map((d, i) => {
           const className = ["lis-item", i < usedCount ? "used" : undefined].join(" ")
           return <>{i > 0 ? ", " : ""}<span className={className}>{d}</span></>
@@ -220,8 +239,14 @@ const App: React.FC = () => {
       }
       <button onClick={addLis}>Add</button>
       <button onClick={clearLis}>Clear</button>
+      <button onClick={enumerate}>Enumerate</button>
       </div>
-      <svg width="100%" height="400"></svg>
+      <div className="graph">
+      <svg width="100%" height="100%"></svg>
+      </div>
+      <div className="console">
+        <textarea value={consoleValue}></textarea>
+      </div>
     </div>
   );
 }

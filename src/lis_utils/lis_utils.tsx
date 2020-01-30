@@ -67,6 +67,45 @@ export const addValueToQNList = (index: number, data: Array<number>, graph: Grap
     node.downNeighborIndex = get_updown_neighbor(index, Neighbour.Down, rising_length)
 }
 
+const enumerate_LIS_ending_at = (graph: Graph, elemIdx: [number, number]): Array<Array<number>> => {
+  var horz_list = graph[elemIdx[0]]
+  var element = horz_list[elemIdx[1]]
+  if (element.upNeighborIndex === null) {
+    return [[element.value]]
+  }
+
+  let col = -1;
+  const horz_list_above = graph[elemIdx[0] - 1]
+  horz_list_above.forEach((node, j) => {
+    if (node.index === element.upNeighborIndex) {
+      col = j;
+    }
+  })
+  const result: Array<Array<number>> = []
+  while (col >= 0) {
+    if (horz_list_above[col].value >= element.value) break
+    const lises = enumerate_LIS_ending_at(graph, [elemIdx[0] - 1, col])
+    lises.forEach(lis => {
+      lis.push(element.value)
+      result.push(lis)
+    })
+    col--
+  }
+
+  return result
+}
+
+export const enumerate_LIS = (graph: Graph) => {
+  const result: Array<Array<number>> = [];
+  graph.forEach((horz_list, i) => {
+      horz_list.forEach((node, j) => {
+          const lises = enumerate_LIS_ending_at(graph, [i, j])
+          lises.forEach(d => result.push(d))
+      })
+  })
+  return result;
+}
+
 export type HorizontalList = Array<Node>
 
 export type Graph = Array<HorizontalList>

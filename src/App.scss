@@ -69,3 +69,37 @@ button {
   font-weight: bold;
   color: green;
 }
+
+.App {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  grid-template-areas:
+  'header header'
+  'graph console';
+  grid-template-columns: 2fr 1fr ;
+  grid-template-rows: auto 1fr;
+  grid-gap: 0px;
+}
+
+.header {
+  padding: 20px;
+  grid-area: header;
+  border-bottom: 1px solid black;
+  button {
+    margin: 0px 10px;
+    padding: 10px 40px;
+  }
+}
+.graph {
+  grid-area: graph;
+  overflow: auto;
+}
+.console {
+  grid-area: console;
+  overflow: auto;
+  textarea {
+    height: 100%;
+    width: 100%;
+  }
+}
