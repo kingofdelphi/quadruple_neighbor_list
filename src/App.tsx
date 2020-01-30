@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import * as d3 from "d3";
 
-import { Graph, Node, HorizontalList, addValueToQNList } from './lis_utils'
+import { Graph, Node, addValueToQNList } from './lis_utils'
 
 import './App.css';
 
@@ -40,12 +40,6 @@ const render = (root: HTMLElement, graph: Graph) => {
     .attr('fill', 'black');
 
 
-  var u = svg
-    .selectAll<SVGGElement, HorizontalList>('g.horizontal-list')
-    .data(graph);
-
-  u.exit().remove()
-
   const node_radius = 20;
   const node_gap = 50;
 
@@ -61,8 +55,10 @@ const render = (root: HTMLElement, graph: Graph) => {
       node_idx_to_i_j[node.index] = [i, j]
     })
   })
+  const nodes: Array<Node> = []
   graph.forEach((horizontal_list, i) => {
     horizontal_list.forEach((node, j) => {
+      nodes.push(node)
       if (j) {
         links.push(
           { nodeA: [i, j - 1], nodeB: [i, j] }
@@ -83,9 +79,7 @@ const render = (root: HTMLElement, graph: Graph) => {
 
   var link_group = svg.select('g.link-group')
   if (link_group.empty()) {
-    d3.select(root)
-      .select('svg')
-      .append('g')
+      svg.append('g')
       .attr('class', 'link-group')
     link_group = svg.select('g.link-group')
   }
@@ -99,11 +93,15 @@ const render = (root: HTMLElement, graph: Graph) => {
 
   linksel
     .exit()
+    .transition()
+    .duration(200)
+    .attr('opacity', 0)
     .remove();
 
   linksel
     .enter()
     .append('line')
+    .attr('opacity', 0)
     .attr('class', 'link')
     .attr('transform', 'translate(100, 100)')
     .each(function (d) {
@@ -116,79 +114,83 @@ const render = (root: HTMLElement, graph: Graph) => {
       vec[0] /= dist
       vec[1] /= dist
 
-      var len = dist - node_radius - 3.5
+      var len = dist - 2 * node_radius - 3.5
 
-      nd.attr("x1", source.x)
-      .attr("y1", source.y)
-      .attr("x2", source.x + len * vec[0])
-      .attr("y2", source.y + len * vec[1])
+      nd.attr("x1", source.x + node_radius * vec[0])
+      .attr("y1", source.y + node_radius * vec[1])
+      .attr("x2", source.x + (node_radius + len) * vec[0])
+      .attr("y2", source.y + (node_radius + len) * vec[1])
       .attr('marker-end', 'url(#marker_arrow)')
-    });
-
-  var horizontal_lists_enter = u.enter()
-    .append('g')
-    .attr('class', 'horizontal-list')
-
-  horizontal_lists_enter.exit().remove();
-
-  var horizontal_lists = horizontal_lists_enter
-    .merge(u)
-    .attr('transform', 'translate(100, 100)')
-    .attr('cx', function(d) {
-      return 0
     })
-    .attr('cy', function(d) {
-      return 0
-    });
+    .transition()
+    .duration(200)
+    .attr('opacity', 1)
+
+  var nodes_group = svg.select('g.nodes-group')
+  if (nodes_group.empty()) {
+      svg.append('g')
+      .attr('class', 'nodes-group')
+      .attr('transform', 'translate(100, 100)')
+      nodes_group = svg.select('g.nodes-group')
+  }
+
+  var node_objs = nodes_group
+    .selectAll<SVGGElement, Node>('g')
+    .data(nodes, d => "" + d.index)
+
+  node_objs
+  .exit()
+  .transition()
+  .duration(200)
+  .attr('opacity', 0)
+  .remove();
 
   // create nodes
-  horizontal_lists.each(function(horizontal_list, i) {
-    var group = d3.select(this);
-    var upd = group
-      .selectAll<SVGGElement, Node>('g.node')
-      .data(horizontal_list, d => "" + d.index)
-
-    upd.enter()
-      .append('g')
-      .attr('class', 'node')
-      .attr('transform', (d, idx) => {
-        var coords = get_coords([i, idx]);
+  node_objs
+    .enter()
+    .append('g')
+    .attr('opacity', 0)
+    .attr('class', 'node')
+    .attr('transform', (d) => {
+        var coords = get_coords(node_idx_to_i_j[d.index]);
         return `translate(${coords.x}, ${coords.y})`
-      })
-      .merge(upd)
-      .each(function (datum, j) {
-          var node = d3.select(this);
-          var circle = node.select('circle')
-          if (circle.empty()) {
-            node.append('circle');
-            circle = node.select('circle')
-          }
-          var text = node.select('text');
-          if (text.empty()) {
-            node
-              .append('text')
-              .attr('class', 'elem-value')
-              .attr('alignment-baseline', 'central')
-              .attr("text-anchor", "middle")
-              .text(datum.value)
-          }
-          circle.attr('r', node_radius)
+    })
+    .merge(node_objs)
+    .each(function(datum, i) {
+        var node = d3.select(this);
+        var circle = node.select('circle')
+        if (circle.empty()) {
+          node.append('circle');
+          circle = node.select('circle')
+        }
+        var text = node.select('text');
+        if (text.empty()) {
+          node
+            .append('text')
+            .attr('class', 'elem-value')
+            .attr('alignment-baseline', 'central')
+            .attr("text-anchor", "middle")
+            .text(datum.value)
+        }
+        circle
+          .attr('r', node_radius)
           .attr('cx', function(d) {
-            return 0
+              return 0
           })
           .attr('cy', function(d) {
-            return 0
+              return 0
           })
-      })
-
-  });
+    })
+    .transition()
+    .duration(200)
+    .attr('opacity', 1)
 
 };
 
 const App: React.FC = () => {
   const ref = useRef(null);
   const [usedCount, setUsedCount] = useState(0)
-  const [graph] = useState([])
+  const [graph, setGraph] = useState([])
 
   const array = [3, 9, 6, 2, 8, 5, 7];
   const [rising_length] = useState(array.map(d => 0))
@@ -203,6 +205,11 @@ const App: React.FC = () => {
     setUsedCount(usedCount + 1)
   };
 
+  const clearLis = () => {
+    setGraph([])
+    setUsedCount(0)
+  }
+
   return (
     <div ref={ref} className="App">
       <div>
@@ -212,6 +219,7 @@ const App: React.FC = () => {
       })
       }
       <button onClick={addLis}>Add</button>
+      <button onClick={clearLis}>Clear</button>
       </div>
       <svg width="100%" height="400"></svg>
     </div>
