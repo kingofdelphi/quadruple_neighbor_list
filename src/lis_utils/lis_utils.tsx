@@ -62,11 +62,9 @@ export const addValueToQNList = (index: number, data: Array<number>, graph: Grap
     var node: Node = { value, index }
     graph[i].push(node)
     rising_length[index] = i + 1
-    console.log(rising_length)
 
     node.upNeighborIndex = get_updown_neighbor(index, Neighbour.Up, rising_length)
     node.downNeighborIndex = get_updown_neighbor(index, Neighbour.Down, rising_length)
-    console.log(node)
 }
 
 export type HorizontalList = Array<Node>

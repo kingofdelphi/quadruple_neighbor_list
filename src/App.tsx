@@ -27,11 +27,29 @@ const render = (root: HTMLElement, graph: Graph) => {
                                   ({ x: col * (2 * node_radius + node_gap), y: row * (2 * node_radius + node_gap) });
 
   var links: PathInfo[] = [];
+  var node_idx_to_i_j: { [name: number]: [number, number] } = {
+
+  }
+  graph.forEach((horizontal_list, i) => {
+    horizontal_list.forEach((node, j) => {
+      node_idx_to_i_j[node.index] = [i, j]
+    })
+  })
   graph.forEach((horizontal_list, i) => {
     horizontal_list.forEach((node, j) => {
       if (j) {
         links.push(
           { nodeA: [i, j - 1], nodeB: [i, j] }
+        );
+      }
+      if (node.upNeighborIndex != null) {
+        links.push(
+          { nodeA: [i, j], nodeB: node_idx_to_i_j[node.upNeighborIndex] }
+        );
+      }
+      if (node.downNeighborIndex != null) {
+        links.push(
+          { nodeA: [i, j], nodeB: node_idx_to_i_j[node.downNeighborIndex] }
         );
       }
     });
@@ -48,9 +66,14 @@ const render = (root: HTMLElement, graph: Graph) => {
 
   var linksel = link_group
     .selectAll<SVGGElement, PathInfo>('line')
-    .data(links);
+    .data(links, ({ nodeA, nodeB}) => {
+      var ids = [nodeA[0], nodeA[1], nodeB[0], nodeB[1]].join(" ")
+      return ids
+    });
 
-  linksel.exit().remove();
+  linksel
+    .exit()
+    .remove();
 
   linksel
     .enter()
