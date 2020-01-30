@@ -12,9 +12,35 @@ interface PathInfo {
 }
 
 const render = (root: HTMLElement, graph: Graph) => {
-  var u = d3
+
+  var svg = d3
     .select(root)
     .select('svg')
+
+  var defs = svg.select('defs')
+  if (defs.empty()) {
+    svg.append('defs').attr('class', 'defs')
+    defs = svg.select('defs')
+  }
+
+  defs.selectAll('marker')
+    .data([0])
+    .enter()
+    .append('marker')
+    .attr('id', 'marker_arrow')
+    .attr('markerHeight', 5)
+    .attr('markerWidth', 5)
+    .attr('markerUnits', 'strokeWidth')
+    .attr('orient', 'auto')
+    .attr('refX', 0)
+    .attr('refY', 0)
+    .attr('viewBox', '-5 -5 10 10')
+    .append('svg:path')
+    .attr('d', 'M 0,0 m -5,-5 L 5,0 L -5,5 Z')
+    .attr('fill', 'black');
+
+
+  var u = svg
     .selectAll<SVGGElement, HorizontalList>('g.horizontal-list')
     .data(graph);
 
@@ -55,13 +81,13 @@ const render = (root: HTMLElement, graph: Graph) => {
     });
   });
 
-  var link_group = d3.select(root).select('svg').select('g.link-group')
+  var link_group = svg.select('g.link-group')
   if (link_group.empty()) {
     d3.select(root)
       .select('svg')
       .append('g')
       .attr('class', 'link-group')
-    link_group = d3.select(root).select('svg').select('g.link-group')
+    link_group = svg.select('g.link-group')
   }
 
   var linksel = link_group
@@ -79,18 +105,24 @@ const render = (root: HTMLElement, graph: Graph) => {
     .enter()
     .append('line')
     .attr('class', 'link')
-    .attr('z-index', -1)
     .attr('transform', 'translate(100, 100)')
     .each(function (d) {
       const source = get_coords(d.nodeA);
       const target = get_coords(d.nodeB);
 
       var nd = d3.select(this);
+      var vec = [target.x - source.x, target.y - source.y]
+      var dist = Math.hypot(vec[0], vec[1])
+      vec[0] /= dist
+      vec[1] /= dist
 
-      nd.attr("x1", function(d) { return source.x; })
-      .attr("y1", function(d) { return source.y; })
-      .attr("x2", function(d) { return target.x; })
-      .attr("y2", function(d) { return target.y; });
+      var len = dist - node_radius - 3.5
+
+      nd.attr("x1", source.x)
+      .attr("y1", source.y)
+      .attr("x2", source.x + len * vec[0])
+      .attr("y2", source.y + len * vec[1])
+      .attr('marker-end', 'url(#marker_arrow)')
     });
 
   var horizontal_lists_enter = u.enter()
@@ -158,7 +190,7 @@ const App: React.FC = () => {
   const [usedCount, setUsedCount] = useState(0)
   const [graph] = useState([])
 
-  const array = [1, 5, 3, 2, 8, 10, 7];
+  const array = [3, 9, 6, 2, 8, 5, 7];
   const [rising_length] = useState(array.map(d => 0))
 
   useEffect(() => {
