@@ -2,7 +2,7 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import * as d3 from "d3";
 
-import { Graph, Node, HorizontalList } from './lis_utils'
+import { Graph, Node, HorizontalList, addValueToQNList } from './lis_utils'
 
 import './App.css';
 
@@ -12,8 +12,6 @@ interface PathInfo {
 }
 
 const render = (root: HTMLElement, graph: Graph) => {
-  var width = 300, height = 300
-
   var u = d3
     .select(root)
     .select('svg')
@@ -135,9 +133,10 @@ const render = (root: HTMLElement, graph: Graph) => {
 const App: React.FC = () => {
   const ref = useRef(null);
   const [usedCount, setUsedCount] = useState(0)
-  const [graph, setGraph] = useState([])
+  const [graph] = useState([])
 
   const array = [1, 5, 3, 2, 8, 10, 7];
+  const [rising_length] = useState(array.map(d => 0))
 
   useEffect(() => {
     render(ref.current, graph);
@@ -145,20 +144,7 @@ const App: React.FC = () => {
 
   const addLis = () => {
     if (usedCount === array.length) return
-    var select_idx = usedCount
-    var value = array[select_idx]
-    var i = 0;
-    while (i < graph.length) {
-      var horz_list = graph[i]
-      if (horz_list[horz_list.length - 1].value >= value) {
-        break;
-      }
-      i++
-    }
-    if (i >= graph.length) {
-      graph.push([])
-    }
-    graph[i].push({ value, index: select_idx })
+    addValueToQNList(usedCount, array, graph, rising_length)
     setUsedCount(usedCount + 1)
   };
 
