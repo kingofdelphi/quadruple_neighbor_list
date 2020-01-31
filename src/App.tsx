@@ -2,11 +2,12 @@ import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import * as d3 from "d3";
 
-import { Graph, Node, addValueToQNList, enumerate_LIS } from './lis_utils'
+import { Graph, Node, addValueToQNList, enumerate_LIS, slide_lis } from './lis_utils'
 
 import './App.scss';
 
 interface PathInfo {
+  key: string
   nodeA: [number, number]
   nodeB: [number, number]
 }
@@ -65,22 +66,23 @@ const render = (root: HTMLElement, graph: Graph) => {
     })
   })
   const nodes: Array<Node> = []
+  const getKey = (a: number, b: number) => a + " " + b
   graph.forEach((horizontal_list, i) => {
     horizontal_list.forEach((node, j) => {
       nodes.push(node)
       if (j) {
         links.push(
-          { nodeA: [i, j - 1], nodeB: [i, j] }
+          { key: getKey(horizontal_list[j - 1].index, node.index), nodeA: [i, j - 1], nodeB: [i, j] }
         );
       }
       if (node.upNeighborIndex != null) {
         links.push(
-          { nodeA: [i, j], nodeB: node_idx_to_i_j[node.upNeighborIndex] }
+          { key: getKey(node.index, node.upNeighborIndex), nodeA: [i, j], nodeB: node_idx_to_i_j[node.upNeighborIndex] }
         );
       }
       if (node.downNeighborIndex != null) {
         links.push(
-          { nodeA: [i, j], nodeB: node_idx_to_i_j[node.downNeighborIndex] }
+          { key: getKey(node.index, node.downNeighborIndex), nodeA: [i, j], nodeB: node_idx_to_i_j[node.downNeighborIndex] }
         );
       }
     });
@@ -94,11 +96,8 @@ const render = (root: HTMLElement, graph: Graph) => {
   }
 
   var linksel = link_group
-    .selectAll<SVGGElement, PathInfo>('line')
-    .data(links, ({ nodeA, nodeB}) => {
-      var ids = [nodeA[0], nodeA[1], nodeB[0], nodeB[1]].join(" ")
-      return ids
-    });
+    .selectAll<SVGLineElement, PathInfo>('line')
+    .data(links, link => link.key)
 
   linksel
     .exit()
@@ -112,11 +111,12 @@ const render = (root: HTMLElement, graph: Graph) => {
     .append('line')
     .attr('opacity', 0)
     .attr('class', 'link')
+    .merge(linksel)
     .each(function (d) {
+      var nd = d3.select(this)
       const source = get_coords(d.nodeA);
       const target = get_coords(d.nodeB);
 
-      var nd = d3.select(this);
       var vec = [target.x - source.x, target.y - source.y]
       var dist = Math.hypot(vec[0], vec[1])
       vec[0] /= dist
@@ -124,15 +124,16 @@ const render = (root: HTMLElement, graph: Graph) => {
 
       var len = dist - 2 * node_radius - 3.5
 
-      nd.attr("x1", source.x + node_radius * vec[0])
+      nd
+      .transition()
+      .duration(1000)
+      .attr('opacity', 1)
+      .attr("x1", source.x + node_radius * vec[0])
       .attr("y1", source.y + node_radius * vec[1])
       .attr("x2", source.x + (node_radius + len) * vec[0])
       .attr("y2", source.y + (node_radius + len) * vec[1])
       .attr('marker-end', 'url(#marker_arrow)')
     })
-    .transition()
-    .duration(200)
-    .attr('opacity', 1)
 
   var nodes_group = container.select('g.nodes-group')
   if (nodes_group.empty()) {
@@ -158,44 +159,49 @@ const render = (root: HTMLElement, graph: Graph) => {
     .append('g')
     .attr('opacity', 0)
     .attr('class', 'node')
+    .each(function(datum, i) {
+      console.log(datum)
+          var node = d3.select(this);
+          var circle = node.select('circle')
+          if (circle.empty()) {
+            node.append('circle');
+            circle = node.select('circle')
+          }
+          var text = node.select('text');
+          if (text.empty()) {
+            node
+              .append('text')
+              .attr('class', 'elem-value')
+              .attr('alignment-baseline', 'central')
+              .attr("text-anchor", "middle")
+              .text(datum.value)
+          }
+          circle
+            .attr('r', node_radius)
+            .attr('cx', function(d) {
+                return 0
+            })
+            .attr('cy', function(d) {
+                return 0
+            })
+      })
+    .merge(node_objs)
+    .transition()
+    .duration(1000)
+    .attr('opacity', 1)
     .attr('transform', (d) => {
         var coords = get_coords(node_idx_to_i_j[d.index]);
         return `translate(${coords.x}, ${coords.y})`
     })
-    .merge(node_objs)
-    .each(function(datum, i) {
-        var node = d3.select(this);
-        var circle = node.select('circle')
-        if (circle.empty()) {
-          node.append('circle');
-          circle = node.select('circle')
-        }
-        var text = node.select('text');
-        if (text.empty()) {
-          node
-            .append('text')
-            .attr('class', 'elem-value')
-            .attr('alignment-baseline', 'central')
-            .attr("text-anchor", "middle")
-            .text(datum.value)
-        }
-        circle
-          .attr('r', node_radius)
-          .attr('cx', function(d) {
-              return 0
-          })
-          .attr('cy', function(d) {
-              return 0
-          })
+    .tween('height-updater', function () {
+      const nd = container.node() as SVGGElement
+      return function(t) {
+        svg
+          .attr('width', nd.getBoundingClientRect().width + 2 * GAP)
+          .attr('height', nd.getBoundingClientRect().height + 2 * GAP)
+      };
     })
-    .transition()
-    .duration(200)
-    .attr('opacity', 1)
 
-  const nd = container.node() as SVGGElement
-  svg
-    .attr('width', nd.getBoundingClientRect().width + 2 * GAP)
-    .attr('height', nd.getBoundingClientRect().height + 2 * GAP)
 
 };
 
@@ -204,6 +210,7 @@ const App: React.FC = () => {
   const [usedCount, setUsedCount] = useState(0)
   const [graph, setGraph] = useState([])
   const [consoleValue, setConsoleValue] = useState("")
+  const [slidingStart, setSlidingStart] = useState(0)
 
   const array = [3, 9, 6, 2, 8, 5, 7, 15, 20, 8, 3, 2, 51, 32, 1, -1, 51, 5];
   const [rising_length] = useState(array.map(d => 0))
@@ -214,7 +221,7 @@ const App: React.FC = () => {
 
   const addLis = () => {
     if (usedCount === array.length) return
-    addValueToQNList(usedCount, array, graph, rising_length)
+    addValueToQNList(usedCount, array, graph, rising_length, { start: slidingStart, end: usedCount })
     setUsedCount(usedCount + 1)
   };
 
@@ -229,15 +236,23 @@ const App: React.FC = () => {
     setConsoleValue(lises.map(lis => lis.join(", ")).join("\n"))
   }
 
+  const popHead = () => {
+    if (slidingStart === array.length) return;
+    setSlidingStart(slidingStart + 1)
+    const ret = slide_lis(array, graph, rising_length, { start: slidingStart + 1, end: usedCount })
+    setGraph(ret)
+  }
+
   return (
     <div ref={ref} className="App">
       <div className="header">
       {array.map((d, i) => {
-          const className = ["lis-item", i < usedCount ? "used" : undefined].join(" ")
+          const className = ["lis-item", i >= slidingStart && i < usedCount ? "used" : undefined].join(" ")
           return <>{i > 0 ? ", " : ""}<span className={className}>{d}</span></>
       })
       }
       <button onClick={addLis}>Add</button>
+      <button onClick={popHead}>Pop</button>
       <button onClick={clearLis}>Clear</button>
       <button onClick={enumerate}>Enumerate</button>
       </div>

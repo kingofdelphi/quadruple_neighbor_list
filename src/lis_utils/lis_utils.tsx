@@ -23,9 +23,14 @@ enum Neighbour {
     Down,
 }
 
-export const get_updown_neighbor = (idx: number, neighbour: Neighbour, rising_length: Array<number>) => {
-  var orig = rising_length[idx];
-  while (--idx >= 0) {
+interface SlideInfo {
+  start: number
+  end: number
+}
+
+export const get_updown_neighbor = (idx: number, neighbour: Neighbour, rising_length: Array<number>, slide_info: SlideInfo) => {
+  var orig = rising_length[idx]
+  while (--idx >= slide_info.start) {
     if (neighbour === Neighbour.Up && rising_length[idx] + 1 === orig) {
       return idx;
     }
@@ -46,7 +51,7 @@ export interface Node {
   downNeighborIndex?: number
 }
 
-export const addValueToQNList = (index: number, data: Array<number>, graph: Graph, rising_length: Array<number>) => {
+export const addValueToQNList = (index: number, data: Array<number>, graph: Graph, rising_length: Array<number>, slide_info: SlideInfo) => {
     var value = data[index]
     var i = 0;
     while (i < graph.length) {
@@ -63,8 +68,8 @@ export const addValueToQNList = (index: number, data: Array<number>, graph: Grap
     graph[i].push(node)
     rising_length[index] = i + 1
 
-    node.upNeighborIndex = get_updown_neighbor(index, Neighbour.Up, rising_length)
-    node.downNeighborIndex = get_updown_neighbor(index, Neighbour.Down, rising_length)
+    node.upNeighborIndex = get_updown_neighbor(index, Neighbour.Up, rising_length, slide_info)
+    node.downNeighborIndex = get_updown_neighbor(index, Neighbour.Down, rising_length, slide_info)
 }
 
 const enumerate_LIS_ending_at = (graph: Graph, elemIdx: [number, number]): Array<Array<number>> => {
@@ -104,6 +109,23 @@ export const enumerate_LIS = (graph: Graph) => {
       })
   })
   return result;
+}
+
+export const slide_lis = (
+    data: Array<number>, 
+    graph: Graph, 
+    rising_length: Array<number>, 
+    slide_info: SlideInfo
+  ) => {
+  if (graph.length === 0) return graph
+
+  rising_length.forEach((d, i) => rising_length[i] = 0)
+  const new_graph: Graph = []
+  console.log(slide_info)
+  for (let i = slide_info.start; i < slide_info.end; ++i) {
+    addValueToQNList(i, data, new_graph, rising_length, slide_info)
+  }
+  return new_graph
 }
 
 export type HorizontalList = Array<Node>
